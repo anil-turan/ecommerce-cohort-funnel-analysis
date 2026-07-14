@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/)
 [![SQLite](https://img.shields.io/badge/SQLite-3.42-003B57)](https://www.sqlite.org/)
 [![pandas](https://img.shields.io/badge/pandas-2.2-150458)](https://pandas.pydata.org/)
-[![tests](https://img.shields.io/badge/tests-12%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-20%20passing-brightgreen)](tests/)
 
 A synthetic but structurally realistic SaaS product dataset — signups, a
 3-step conversion funnel (signup → activated → subscribed), and ongoing
@@ -37,6 +37,10 @@ no BI tool — the analysis is the point)
    "which channel signs up the most users" but "which channel is actually
    worth another marketing pound" — with the CAC assumption stated
    explicitly rather than hidden.
+4. **The recommendation is stress-tested, not just reported.** Referral has
+   the smallest sample of any channel — `src/confidence.py` checks whether
+   its lead survives that with a Wilson CI and a two-proportion z-test
+   before the README calls it a real effect.
 
 ---
 
@@ -52,12 +56,14 @@ ecommerce-cohort-funnel-analysis/
 ├── src/
 │   ├── generator.py    # synthetic SaaS funnel/subscription generator
 │   ├── build_db.py     # loads the generated data into SQLite
-│   └── run_queries.py  # parses + executes the .sql files, labelled by query
+│   ├── run_queries.py  # parses + executes the .sql files, labelled by query
+│   └── confidence.py   # Wilson CI + two-proportion z-test for channel conversion rates
 ├── notebooks/
 │   └── 01_funnel_cohort_ltv.ipynb  # runs every query, real results + charts + recommendation
 ├── tests/
 │   ├── test_generator.py  # referential integrity, funnel monotonicity, quality inversion
-│   └── test_queries.py    # funnel/retention/LTV correctness invariants
+│   ├── test_queries.py    # funnel/retention/LTV correctness invariants
+│   └── test_confidence.py # Wilson CI / z-test correctness
 └── pyproject.toml
 ```
 
@@ -85,6 +91,26 @@ a quarter of the rate** — a gap invisible in a dashboard that only reports
 signup volume.
 
 ![Volume vs quality](reports/figures/02_volume_vs_quality.png)
+
+**Is Referral's lead real, or a small-sample fluke?** Referral has by far
+the fewest signups of any channel (483, vs Paid Ads' 2,078) — exactly the
+case where a headline rate should be checked before it drives a budget
+decision. `src/confidence.py` adds a Wilson score CI per channel and a
+two-proportion z-test of Referral against each other channel:
+
+![Conversion rate with confidence intervals](reports/figures/05_conversion_rate_ci.png)
+
+| Comparison | Gap | 95% CI | p-value | Significant |
+|---|---|---|---|---|
+| Referral vs Paid Ads | +25.3pp | [21.0pp, 29.6pp] | <0.001 | Yes |
+| Referral vs Social Media | +27.9pp | [23.5pp, 32.2pp] | <0.001 | Yes |
+| Referral vs Content/SEO | +15.2pp | [10.1pp, 20.2pp] | <0.001 | Yes |
+| Referral vs Organic Search | +13.0pp | [8.3pp, 17.6pp] | <0.001 | Yes |
+
+Every comparison is significant — Referral's smaller sample gives it the
+widest confidence interval of any channel (28.7%-37.0%), but even its lower
+bound comfortably clears every other channel's own upper bound. The budget
+recommendation below isn't resting on a small-sample fluke.
 
 ### 2. Subscription retention decays the way real SaaS products' does
 
@@ -160,6 +186,12 @@ pytest tests/ -v
 - **`NULLIF` guards against divide-by-zero** in the channel-conversion
   query, for the (non-occurring here, but real-world-possible) case of a
   channel with zero activations.
+- **`src/confidence.py` uses the Wilson score interval, not the naive
+  normal-approximation ("Wald") interval** most intro material teaches —
+  Wilson stays well-behaved for small n or a rate near 0%/100%, both of
+  which occur here (Referral's n=483, Social Media's ~5% rate). scipy
+  supplies the normal CDF/quantile; the pooling and test statistic for the
+  two-proportion z-test are implemented directly.
 
 ---
 
