@@ -192,13 +192,3 @@ pytest tests/ -v
   which occur here (Referral's n=483, Social Media's ~5% rate). scipy
   supplies the normal CDF/quantile; the pooling and test statistic for the
   two-proportion z-test are implemented directly.
-
----
-
-## Portfolio Context
-
-Built for UK data analyst applications, alongside a broader data science
-portfolio — this project specifically targets funnel/retention/LTV
-analysis, the growth-analytics skill set distinct from the SQL-joins-and-
-aggregation case study and the BI-dashboard project elsewhere in the
-portfolio.
